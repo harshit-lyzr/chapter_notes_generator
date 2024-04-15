@@ -74,7 +74,7 @@ def upload():
 def main(): 
     image = Image.open("./logo/lyzr-logo.png")
     st.sidebar.image(image, width=150)
-    st.sidebar.subheader('Lyzr- QnA Generator')
+    st.sidebar.subheader('Lyzr Chapter Notes Generator')
 
     # session state for default button
     if 'default_button' not in st.session_state:
