@@ -51,6 +51,13 @@ def gpt_summary(response):
     summary = summarizer.summarize(response, style=style)
     return summary
 
+def rag_notes(agent,user_topic):
+    metric = f""" You are an expert of this {user_topic}. Tell me everything you know about this {user_topic}, Provide a detailed reponse on this {user_topic} from the given file"""
+    with st.spinner("Generating Notes..."):
+        rag_generated_response = rag_response(question=metric,
+                                              agent=agent)  # getting reponse from rag about the subject/topic
+        gpt_response = gpt_summary(response=rag_generated_response)
+    return gpt_response
 
 def default():
     st.info('Default file: Haloalkanes and Haloarenes')
@@ -59,12 +66,10 @@ def default():
     st.markdown("### Questions:")
     st.markdown(def_question)
     user_topic = st.text_input('Enter the topic according to subject')
-    metric = f""" You are an expert of this {user_topic}. Tell me everything you know about this {user_topic}, Provide a detailed reponse on this {user_topic} from the given file"""
     if user_topic is not None:
         if st.button('Submit'):
-            rag_generated_response = rag_response(question=metric, agent=agent)  # getting reponse from rag about the subject/topic
-            gpt_response = gpt_summary(response=rag_generated_response) # create n number of question on rag response
-            st.subheader('Summary')
+            gpt_response=rag_notes(agent,user_topic) # create n number of question on rag response
+            st.subheader('Notes')
             st.write(gpt_response)
 
 
@@ -79,12 +84,9 @@ def upload():
         st.markdown("### Questions:")
         st.markdown(def_question)
         user_topic = st.text_input('Enter the topic according to subject')
-        metric = f""" You are an expert of this {user_topic}. Tell me everything you know about this {user_topic}, Provide a detailed reponse on this {user_topic} from the given file"""
         if user_topic is not None:
             if st.button('Submit'):
-                with st.spinner("Generating summary..."):
-                    rag_generated_response = rag_response(question=metric, agent=agent)  # getting reponse from rag about the subject/topic
-                    gpt_response = gpt_summary(response=rag_generated_response) # create n number of question on rag response
+                gpt_response = rag_notes(agent, user_topic)  # create n number of question on rag response
                 st.subheader('Summary')
                 st.write(gpt_response)
     else:
