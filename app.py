@@ -4,12 +4,10 @@ from PIL import Image
 from utils import utils
 from lyzr import Summarizer
 from dotenv import load_dotenv
+from lyzr_qa import question_generation
 
 load_dotenv()
 api = os.getenv("OPENAI_API_KEY")
-from lyzr_qa import question_generation
-
-
 utils.page_config()
 summarizer = Summarizer(api_key=api)
 
@@ -21,11 +19,30 @@ st.image(image, width=150)
 st.title('Lyzr Chapter Notes Generator📚')
 st.markdown('Welcome to the lyzr Chapter Notes Generator, this app will help you to generate Summaries from given file !!!')
 
+@st.cache_resource(show_spinner=False)
+def rag_default():
+    with st.spinner("Generating Embeddings..."):
+        path = './lech201.pdf'
+        agent = question_generation(path)
+    return agent
 
-def rag_response(topic, path):
-    agent = question_generation(path)
-    metric = f""" You are an expert of this {topic}. Tell me everything you know about this {topic}, Provide a detailed reponse on this {topic} from the given file"""
-    response = agent.query(metric)
+
+@st.cache_resource(show_spinner=False)
+def rag_upload(path):
+    with st.spinner("Generating Embeddings..."):
+        agent = question_generation(path)
+    return agent
+
+
+@st.cache_resource(show_spinner=False)
+def rag_def_question(_agent):
+    with st.spinner("Generating Questions..."):
+        response = _agent.query("Generate 5 Questions")
+    return response.response
+
+
+def rag_response(question,agent):
+    response = agent.query(question)
     return response.response
 
 
@@ -37,39 +54,42 @@ def gpt_summary(response):
 
 def default():
     st.info('Default file: Haloalkanes and Haloarenes')
-    st.markdown(""" ##### Topics can be:
-    1. Haloalkanes
-    2. Haloarenes             """)
-        
-    path = './lech201.pdf'
-
+    agent = rag_default()
+    def_question = rag_def_question(agent)
+    st.markdown("### Questions:")
+    st.markdown(def_question)
     user_topic = st.text_input('Enter the topic according to subject')
-
+    metric = f""" You are an expert of this {user_topic}. Tell me everything you know about this {user_topic}, Provide a detailed reponse on this {user_topic} from the given file"""
     if user_topic is not None:
         if st.button('Submit'):
-            rag_generated_response = rag_response(topic=user_topic, path=path)  # getting reponse from rag about the subject/topic
+            rag_generated_response = rag_response(question=metric, agent=agent)  # getting reponse from rag about the subject/topic
             gpt_response = gpt_summary(response=rag_generated_response) # create n number of question on rag response
             st.subheader('Summary')
             st.write(gpt_response)
+
 
 def upload():
     file = st.file_uploader("Upload a Subject Book Pdf", type=["pdf"])
     if file:
         utils.save_uploaded_file(file, directory_name=data)
         path = utils.get_files_in_directory(directory=data)
-        filepath = path[0] # get the first filepath
-
+        filepath = path[0]
+        agent = rag_upload(filepath)
+        def_question = rag_def_question(agent)
+        st.markdown("### Questions:")
+        st.markdown(def_question)
         user_topic = st.text_input('Enter the topic according to subject')
-
+        metric = f""" You are an expert of this {user_topic}. Tell me everything you know about this {user_topic}, Provide a detailed reponse on this {user_topic} from the given file"""
         if user_topic is not None:
             if st.button('Submit'):
-                rag_generated_response = rag_response(topic=user_topic, path=filepath)  # getting reponse from rag about the subject/topic
-                gpt_response = gpt_summary(response=rag_generated_response) # create n number of question on rag response
+                with st.spinner("Generating summary..."):
+                    rag_generated_response = rag_response(question=metric, agent=agent)  # getting reponse from rag about the subject/topic
+                    gpt_response = gpt_summary(response=rag_generated_response) # create n number of question on rag response
                 st.subheader('Summary')
                 st.write(gpt_response)
-            
     else:
         st.warning('Please Upload subject pdf file!!!')
+
 
 def main(): 
     image = Image.open("./logo/lyzr-logo.png")
@@ -89,6 +109,7 @@ def main():
     def default_button():
         st.session_state.default_button = True
         st.session_state.upload_button = False
+        st.session_state.show_questions = True
 
     def upload_button():
         st.session_state.upload_button = True
@@ -99,7 +120,7 @@ def main():
     st.sidebar.button('Upload File', on_click=upload_button)
 
 
-    if st.session_state.default_button: 
+    if st.session_state.default_button:
         default()
 
     if st.session_state.upload_button:
